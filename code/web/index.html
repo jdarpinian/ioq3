@@ -310,14 +310,36 @@ const ios = /iPad|iPhone|iPod/.test(navigator.platform) || (navigator.platform =
 
 let saveFiles = null;
 document.addEventListener('pointerlockchange', ()=>{if (!ios && document.pointerLockElement && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen()});
+async function canvasRequestPointerLock() {
+    try {
+        // TODO `requestPointerLock` returns a Promise only on
+        // Chromium and Opera,
+        // so this code is unreachable on other browsers.
+        // We should also listen on the `pointerlockerror` event to fix this.
+        await canvas.originalRequestPointerLock({ unadjustedMovement: true });
+        return;
+    } catch (err) {
+        // `unadjustedMovement` is not supported on Linux on Chromium,
+        // let's try without this parameter.
+        // Aiming will suck, but it's better than nothing.
+        //
+        // Note that `requestPointerLock` may have failed
+        // for a different reason.
+        console.warn(
+            '`requestPointerLock with `unadjustedMovement: true` failed, falling back to regular',
+            err
+        );
+        await canvas.originalRequestPointerLock();
+    }
+}
 document.addEventListener('fullscreenchange', () => {
     if (saveFiles) saveFiles();
-    if (document.fullscreenElement && !document.pointerLockElement && canvas.originalRequestPointerLock) canvas.originalRequestPointerLock({ unadjustedMovement: true });
+    if (document.fullscreenElement && !document.pointerLockElement && canvas.originalRequestPointerLock) canvasRequestPointerLock();
     ui.style.visibility = document.fullscreenElement ? 'hidden' : 'visible';
 });
 const fullscreenAndPointerLock = async (e) => {
     if (ui.contains(e.target)) return;
-    if (!document.pointerLockElement && canvas.originalRequestPointerLock) canvas.originalRequestPointerLock({ unadjustedMovement: true });
+    if (!document.pointerLockElement && canvas.originalRequestPointerLock) canvasRequestPointerLock();
     if (!ios && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
 };
 blocker.addEventListener('keydown', fullscreenAndPointerLock);
