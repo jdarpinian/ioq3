@@ -50,7 +50,7 @@ static void NET_server_name_changed(struct cvar_s *self, char *oldValue, char *n
 
 //=============================================================================
 
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 #include <emscripten/html5.h>
 const char* emUnloadCallback(int eventType, const void* reserved, void* userData) {
 	Com_Quit_f();
@@ -68,19 +68,19 @@ void HUMBLENET_Init (void)
 	if( humblenet_p2p_is_initialized() )
 		return;
 	
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 	
 	// on emscripten this is supposed to be specified on command line
 	// don't save to config
 	int net_peer_server_flags = CVAR_INIT;
 	
-#else  // EMSCRIPTEN
+#else  // __EMSCRIPTEN__
 	
 	// on native user must set it
 	// save to config
 	int net_peer_server_flags = CVAR_ARCHIVE;
 	
-#endif  // EMSCRIPRTEN
+#endif  // __EMSCRIPTEN__
 
 	net_peer_server = Cvar_Get("net_peer_server", "ws://localhost:8080/ws", net_peer_server_flags);
 //	net_peer_server->changed = NET_peer_server_changed;
@@ -99,7 +99,7 @@ void HUMBLENET_Init (void)
     if( net_peer_relay->integer )
         humblenet_set_hint("p2p_use_relay", net_peer_relay->string);
 	
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 	// disconnect client when user closes tab
 	emscripten_set_beforeunload_callback(NULL, emUnloadCallback);
 #endif

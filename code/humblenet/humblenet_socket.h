@@ -92,7 +92,7 @@ int hs_sendto( int sock, const void* buffer, int length, int flags, struct socka
 }
 
 int hs_select( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout) {
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 	// TODO: fix this somehow to handle the case where there are humblenet and regular sockets in the same select
 	return humblenet_p2p_wait(0) ? 1 : 0;
 #else

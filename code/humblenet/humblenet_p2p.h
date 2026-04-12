@@ -77,7 +77,7 @@ HUMBLENET_API ha_bool HUMBLENET_CALL humblenet_p2p_disconnect(PeerId peer);
 */
 HUMBLENET_API ha_bool HUMBLENET_CALL humblenet_p2p_wait(int ms);
 
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
 /*
 * POSIX compatible select use to wait on IO from either humblenet or use supplied fds
 */

@@ -215,7 +215,7 @@ HUMBLENET_API ha_bool HUMBLENET_CALL humblenet_p2p_disconnect(PeerId peer);
 */
 HUMBLENET_API ha_bool HUMBLENET_CALL humblenet_p2p_wait(int ms);
 
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
 /*
 * POSIX compatible select use to wait on IO from either humblenet or use supplied fds
 */
@@ -6795,7 +6795,7 @@ struct UnGuard {
 	}
 };
 
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 	#define HUMBLENET_GUARD()
 	#define HUMBLENET_UNGUARD()
 #else
@@ -6977,7 +6977,7 @@ void internal_alias_resolved_to( const std::string& alias, PeerId peer );
 	#include <sys/time.h>
 #endif
 
-#if defined(EMSCRIPTEN)
+#if defined(__EMSCRIPTEN__)
 	#include <emscripten/emscripten.h>
 #endif
 
@@ -7591,7 +7591,7 @@ ha_bool internal_p2p_register_protocol() {
 	return true;
 }
 
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
 extern "C" void poll_deinit();
 #endif
 
@@ -7609,7 +7609,7 @@ void HUMBLENET_CALL humblenet_shutdown() {
 
 	humblenet_p2p_shutdown();
 
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
 	poll_deinit();
 #endif
 
@@ -7744,7 +7744,7 @@ HUMBLENET_API const char* HUMBLENET_CALL humblenet_get_hint(const char* name) {
 		return NULL;
 }
 
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
 
 #include "libpoll.h"	// SKIP_AMALGAMATOR_INCLUDE
 
@@ -7765,7 +7765,7 @@ void humblenet_timer( timer_callback_t callback, int timeout, void* data)
 	poll_timeout( callback, timeout, data );
 }
 
-#else
+#else // __EMSCRIPTEN__
 
 void humblenet_lock() {
 }
@@ -8296,7 +8296,7 @@ void internal_poll_io() {
 	humblenet_p2p_wait(0);
 }
 
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
 
 #include "libpoll.h"	// SKIP_AMALGAMATOR_INCLUDE
 
@@ -8350,7 +8350,7 @@ ha_bool HUMBLENET_CALL humblenet_p2p_wait(int ms) {
 
 
 /*** Start of inlined file: humblenet_p2p_signaling.cpp ***/
-#if defined(EMSCRIPTEN)
+#if defined(__EMSCRIPTEN__)
 	#include <emscripten/emscripten.h>
 #endif
 
@@ -8488,7 +8488,7 @@ namespace humblenet {
 				pinfo.append(", non-desktop architecture");
 				break;
 		}
-#elif defined(EMSCRIPTEN)
+#elif defined(__EMSCRIPTEN__)
 		char buff[512];
 		int len = EM_ASM_INT({
 			var buff = new Uint8Array(Module.HEAPU8.buffer, $0, $1);
@@ -9479,10 +9479,10 @@ namespace humblenet {
 #include <cassert>
 #include <cstring>
 
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 
 /*** Start of inlined file: libwebsockets_asmjs.h ***/
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
 #error "This should only be used under emscripten"
 #endif
 
@@ -9804,7 +9804,7 @@ int websocket_protocol(  struct lws *wsi
 		}
 		break;
 
-#if !defined(EMSCRIPTEN)
+#if !defined(__EMSCRIPTEN__)
 		case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_CLIENT_VERIFY_CERTS:
 		{
 			int i, count = 0;
@@ -10171,7 +10171,7 @@ int internal_write_socket(internal_socket_t* socket, const void *buf, int bufsiz
 // WEBRTC wrapper
 
 /*** Start of inlined file: libwebrtc_asmjs.cpp ***/
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 
 #include <emscripten.h>
 
@@ -10621,11 +10621,11 @@ void libwebrtc_close_channel( struct libwebrtc_data_channel* channel ) {
 // Websockets Wrapper
 
 /*** Start of inlined file: libwebsockets_asmjs.cpp ***/
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 
 
 /*** Start of inlined file: libwebsockets_asmjs.h ***/
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
 #error "This should only be used under emscripten"
 #endif
 
@@ -10840,18 +10840,23 @@ struct lws_context* lws_create_context_extended( struct lws_context_creation_inf
 			stackRestore(stack);
 		};
 		libwebsocket.on_close = function() {
+			if (!this.user_data) return;
 			// closed //
 			libwebsocket.on_event( this.protocol_id, ctx, this.id, 4, this.user_data, 0, 0 );
 			this.destroy();
 		};
 		libwebsocket.on_error = function() {
+			if (!this.user_data) return;
 			// client connection error //
 			libwebsocket.on_event( this.protocol_id, ctx, this.id, 2, this.user_data, 0, 0 );
 			this.destroy();
 		};
 		libwebsocket.destroy = function() {
+			if (!this.user_data) return;
+			var user_data = this.user_data;
+			this.user_data = 0;
 			libwebsocket.sockets.set( this.id, undefined );
-			libwebsocket.on_event( this.protocol_id, ctx, this.id, 11, this.user_data, 0, 0 );
+			libwebsocket.on_event( this.protocol_id, ctx, this.id, 11, user_data, 0, 0 );
 		};
 
 		Module.__libwebsocket = libwebsocket;
