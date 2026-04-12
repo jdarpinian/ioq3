@@ -310,14 +310,28 @@ const ios = /iPad|iPhone|iPod/.test(navigator.platform) || (navigator.platform =
 
 let saveFiles = null;
 document.addEventListener('pointerlockchange', ()=>{if (!ios && document.pointerLockElement && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen()});
-document.addEventListener('fullscreenchange', () => {
+document.addEventListener('fullscreenchange', async () => {
     if (saveFiles) saveFiles();
-    if (document.fullscreenElement && !document.pointerLockElement && canvas.originalRequestPointerLock) canvas.originalRequestPointerLock({ unadjustedMovement: true });
+    if (document.fullscreenElement && !document.pointerLockElement && canvas.originalRequestPointerLock) {
+        try {
+            await canvas.originalRequestPointerLock({ unadjustedMovement: true });
+        } catch (e) {
+            // happens on Chrome Linux when unadjustedMovement is unsupported
+            await canvas.originalRequestPointerLock();
+        }
+    }
     ui.style.visibility = document.fullscreenElement ? 'hidden' : 'visible';
 });
 const fullscreenAndPointerLock = async (e) => {
     if (ui.contains(e.target)) return;
-    if (!document.pointerLockElement && canvas.originalRequestPointerLock) canvas.originalRequestPointerLock({ unadjustedMovement: true });
+    if (!document.pointerLockElement && canvas.originalRequestPointerLock) {
+        try {
+            await canvas.originalRequestPointerLock({ unadjustedMovement: true });
+        } catch (e) {
+            // happens on Chrome Linux when unadjustedMovement is unsupported
+            await canvas.originalRequestPointerLock();
+        }
+    }
     if (!ios && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
 };
 blocker.addEventListener('keydown', fullscreenAndPointerLock);
