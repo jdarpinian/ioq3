@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <title>Upload full version - Quake III Arena Demo</title>
+</head>
+
+<body>
+    <a href="/">Home</a>
+    <br>
+    <br>
+
+    <!-- TODO perhaps the message text can be tailored
+    for when the user gets to this page by trying to join someone else's game,
+    and for when they click "unlock all maps" themselves. -->
+    <p>
+        Purchase the full Quake III Arena to unlock all maps and other content.
+        You can buy the game
+        <a href="http://store.steampowered.com/app/2200/">on Steam</a>
+        or
+        <a href="https://www.gog.com/game/quake_iii_arena">on GOG</a>.
+    </p>
+    <p>
+        In order to play the full game together,
+        all players have to own the full game.
+        <!-- I tried connecting the two together, and was unable to. -->
+    </p>
+    <p>
+        After downloading the game, locate the game directory,
+        and upload the pak0.pk3 - pak8.pk3 files
+        from the "baseq3" directory,
+        using the file picker below.
+    </p>
+    <p>
+        To find the game directory on Steam,
+        find the game in your Steam library,
+        right click it, then, under the "Manage" submenu,
+        click "Browse local files".
+    </p>
+    <p>
+        Don't worry: even after upgrading to the full game,
+        you will still be able to play the demo version with anyone.
+    </p>
+    <p>
+        For more info, see
+        <a href="https://ioquake3.org/help/players-guide">https://ioquake3.org/help/players-guide</a>.
+    </p>
+
+    <form id="gameFilesForm">
+        <label>
+            pak0.pk3 - pak8.pk3 files
+            <br>
+            <input id="gameFilesInput" type="file" accept=".pk3" multiple required />
+        </label>
+        <output>
+            <progress style="display: none" id="uploadProgress" min="0" max="33"></progress>
+            <p id="uploadError" style="display: none">Failed to upload</p>
+        </output>
+    </form>
+
+    <script type="module">
+        // @ts-check
+
+        let goBackOnSuccess = false;
+        if (location.hash === '#go-back-on-success') {
+            goBackOnSuccess = true;
+            // Remove it immediately
+            // so that people don't share the URL like this.
+            location.hash = '';
+        }
+
+        /** @type {HTMLInputElement} */
+        const input = document.getElementById('gameFilesInput');
+        /** @type {HTMLFormElement} */
+        const form = document.getElementById('gameFilesForm');
+        input.onchange = async (event) => {
+            input.setCustomValidity('');
+
+            if (input.files == null || input.files.length === 0) {
+                return;
+            }
+
+            const expectedFileNames = [
+                'pak0.pk3',
+                'pak1.pk3',
+                'pak2.pk3',
+                'pak3.pk3',
+                'pak4.pk3',
+                'pak5.pk3',
+                'pak6.pk3',
+                'pak7.pk3',
+                'pak8.pk3',
+            ]
+
+            let missingFiles = [...expectedFileNames];
+            // const extraneousFiles = [];
+            for (const actual of input.files) {
+                if (expectedFileNames.includes(actual.name)) {
+                    missingFiles = missingFiles.filter(name => name !== actual.name)
+                } else {
+                    // extraneousFiles.push(actual.name);
+                    //
+                    // Let's not prevent users from uploading extra `pk3` files.
+                }
+            }
+
+            /** @type {File | undefined} */
+            const pak0File = [...input.files].find(f => f.name === 'pak0.pk3')
+            if (pak0File != null && pak0File.size < 200_000_000) {
+                input.setCustomValidity(
+                    `The size of the pak0.pk3 file is not the expected 457 MB. Are you sure this is a full game file and not a demo file?`
+                );
+                form.reportValidity();
+                return;
+            }
+
+            if (missingFiles.length > 0) {
+                input.setCustomValidity(
+                    `Please select all files, including ${missingFiles.join(', ')}`
+                );
+                form.reportValidity();
+                return;
+            }
+
+            const cache = await caches.open('thelongestyard');
+            /** @type {File[]} */
+            const filesArr = [...input.files];
+            input.disabled = true;
+
+            /** @type {HTMLProgressElement} */
+            const progress = document.getElementById('uploadProgress');
+            progress.style.display = '';
+            const uploadStartedAt = Date.now()
+            const intervalId = setInterval(() => {
+                const secondsPassed = (Date.now() - uploadStartedAt) / 1000;
+                progress.value = secondsPassed;
+
+                // We expect to take this around 10-30 seconds.
+                // TODO better estimation somehow?
+                if (secondsPassed > 30) {
+                    clearInterval(intervalId);
+                }
+            }, 100);
+
+            try {
+                await Promise.all(filesArr.map(async file => {
+                    await cache.put(`/baseq3/${file.name}`, new Response(file))
+                }));
+            } catch (error) {
+                /** @type {HTMLElement} */
+                const errorEl = document.getElementById('uploadError');
+                errorEl.style.display = '';
+                errorEl.innerText += ' ' + error;
+                progress.style.display = 'none';
+                return
+            } finally {
+                clearInterval(intervalId);
+            }
+
+            console.log('Full game uploaded!')
+            progress.value = progress.max;
+
+            if (goBackOnSuccess) {
+                history.back();
+            } else {
+                // Modify path, but preseve query string.
+                const nextUrl = new URL(location.href);
+                nextUrl.pathname = './index.html'
+                location.assign(nextUrl);
+            }
+        }
+    </script>
+</body>
+
+</html>

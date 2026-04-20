@@ -353,9 +353,11 @@ window.addEventListener("keydown", (e) => {
         if (!defaultKeyBindingKeyCodes[e.code]) e.preventDefault = () => false;
     }, { capture: true });
 
-let gotDemoq3pak0;
-let demoq3pak0Promise = new Promise((resolve) => {
-    gotDemoq3pak0 = resolve;
+/** @type {(files: Array<[filePath: string, file: Promise<Uint8Array>]>}) => void} */
+let gotPk3Files;
+/** @type {Promise<Array<[filePath: string, file: Promise<Uint8Array>]>}>} */
+let pk3FilesPromise = new Promise((resolve) => {
+    gotPk3Files = resolve;
 });
 
 let username = localStorage.getItem('username');
@@ -372,8 +374,20 @@ if (!username || !model) {
     localStorage.setItem('model', model);
 }
 
+const query = new URLSearchParams(window.location.search);
+let server = query.get('server');
+if (query.has('multiplayer')) {
+    if (!server) server = username;
+    let newUrl = new URL(window.location);
+    newUrl.searchParams.delete('multiplayer');
+    newUrl.searchParams.set('server', server);
+    history.replaceState(null, '', newUrl);
+}
+const isFullGame = query.get('full-game') != null ? true : false;
+const basegame = isFullGame ? 'baseq3' : 'demoq3'
+
 let generatedArguments = `
-    +set fs_game demoq3
+    +set fs_game ${basegame}
 `;
 
 let botSkill = 2;
@@ -389,14 +403,18 @@ if (window.matchMedia('(pointer: coarse)').matches) {
     `;
 }
 
-const query = new URLSearchParams(window.location.search);
-let server = query.get('server');
-if (query.has('multiplayer')) {
-    if (!server) server = username;
-    let newUrl = new URL(window.location);
-    newUrl.searchParams.delete('multiplayer');
-    newUrl.searchParams.set('server', server);
-    history.replaceState(null, '', newUrl);
+const fullGameMaps = [
+    // 1 through 19. There is also `q3dm0`, but let's skip it.
+    ...(new Array(19).fill(0)).map((_, ind) => `q3dm${ind + 1}`),
+    // 1 through 6
+    ...(new Array(6).fill(0)).map((_, ind) => `q3tourney${ind + 1}`),
+    ...(new Array(4).fill(0)).map((_, ind) => `q3ctf${ind + 1}`),
+];
+/**
+ * @param {Array<any>} arr
+ */
+function randomFromArray(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
 }
 
 let multiplayer = !!server;
@@ -489,7 +507,9 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
             });
             await idbfsReady;
             try {
-                if(!module.FS.analyzePath('/home/web_user/.q3a/demoq3/q3config.cfg').exists) {
+                // TODO maybe preserve the config when switching
+                // between demo and full game?
+                if(!module.FS.analyzePath(`/home/web_user/.q3a/${basegame}/q3config.cfg`).exists) {
                     module.arguments.push(...`
                         +set model "${model}"
                         +set headmodel "${model}"
@@ -497,7 +517,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                         `.trim().split(/\s+/));
                 } else {
                     // Read the existing q3config.cfg and update the name and model in case the user changed them.
-                    const q3config = module.FS.readFile('/home/web_user/.q3a/demoq3/q3config.cfg', { encoding: 'utf8' });
+                    const q3config = module.FS.readFile(`/home/web_user/.q3a/${basegame}/q3config.cfg`, { encoding: 'utf8' });
                     const lines = q3config.split('\n');
                     for (let i = 0; i < lines.length; i++) {
                         if (lines[i].startsWith('seta name')) {
@@ -516,9 +536,20 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 });
             };
             saveFiles();
-            module.FS.mkdirTree('/demoq3');
-            module.FS.writeFile('/demoq3/pak0.pk3', await demoq3pak0Promise);
-            module.FS.writeFile('/demoq3/ztm-flexible-hud.pk3', await ztmFlexibleHud);
+            module.FS.mkdirTree(`/${basegame}`);
+            const pk3Files = await pk3FilesPromise;
+            await Promise.all(pk3Files.map(async ([filePath, file]) => {
+                module.FS.writeFile(filePath, await file);
+            }));
+
+            // Free RAM, don't keep duplicate `ArrayBuffer`s.
+            // For some reason `pk3FilesPromise = undefined` is not enough,
+            // according to developer tools,
+            // so let's empty the array. We won't need it anymore.
+            pk3Files.fill(undefined)
+            pk3FilesPromise = undefined;
+
+            module.FS.writeFile(`/${basegame}/ztm-flexible-hud.pk3`, await ztmFlexibleHud);
             if (multiplayer) {
                 if (await connectToServer) {
                     module.arguments.push(...`
@@ -529,12 +560,12 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     module.arguments.push(...`
                         +set net_peer_server "${peerServerWebSocket}"
                         +set net_server_name "${server}"
-                        +map q3dm17
+                        +map ${isFullGame ? randomFromArray(fullGameMaps) : 'q3dm17'}
                         `.trim().split(/\s+/));
                 }
             } else {
                 module.arguments.push(...`
-                    +map q3dm17
+                    +map ${isFullGame ? randomFromArray(fullGameMaps) : 'q3dm17'}
                     +addbot sarge ${botSkill}
                     +addbot daemia ${botSkill}
                     +addbot major ${botSkill}
@@ -542,7 +573,7 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                     +addbot stripe ${botSkill}
                 `.trim().split(/\s+/));
             }
-            module.FS.writeFile('/demoq3/autoexec.cfg', `
+            module.FS.writeFile(`/${basegame}/autoexec.cfg`, `
                 set in_joystick 1
                 set in_joystickUseAnalog 1
                 set j_forward "0.005"
@@ -623,54 +654,89 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
     }
 });
 
-// demoq3/pak0.pk3 is original Quake 3 demo assets. Fetch them from a tarfile in a gz file in a shell script in a zip file at the Internet Archive.
-// First check to see if we have it in the cache
 const cache = await caches.open('thelongestyard');
-const cacheResponse = await cache.match('/demoq3/pak0.pk3');
-let demoq3pak0 = await cacheResponse?.arrayBuffer();
-if (demoq3pak0) {
-    demoq3pak0 = new Uint8Array(demoq3pak0);
-    done.style.transform = 'scaleX(1)';
-} else {
-    const demoSize = 49289300;
-    let sh = await fetch('https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh').then(r => r.body);
-    // Skip the first 0x155C bytes of the shell script to get the gz file. Ugh, the streams API is terrible.
-    // Also update the progress bar.
-    let downloaded = 0;
-    let gz = sh.pipeThrough(new TransformStream({
-        transform(chunk, controller) {
-            const skip = 0x155C;
-            if (downloaded >= skip) {
-                downloaded += chunk.byteLength;
+if (!isFullGame) {
+    // demoq3/pak0.pk3 is original Quake 3 demo assets. Fetch them from a tarfile in a gz file in a shell script in a zip file at the Internet Archive.
+    // First check to see if we have it in the cache
+    const cacheResponse = await cache.match('/demoq3/pak0.pk3');
+    let demoq3pak0 = await cacheResponse?.arrayBuffer();
+    if (demoq3pak0) {
+        demoq3pak0 = new Uint8Array(demoq3pak0);
+        done.style.transform = 'scaleX(1)';
+    } else {
+        const demoSize = 49289300;
+        let sh = await fetch('https://archive.org/download/tucows_286139_Quake_III_Arena/linuxq3ademo-1.11-6.x86.gz.zip/linuxq3ademo-1.11-6.x86.gz.sh').then(r => r.body);
+        // Skip the first 0x155C bytes of the shell script to get the gz file. Ugh, the streams API is terrible.
+        // Also update the progress bar.
+        let downloaded = 0;
+        let gz = sh.pipeThrough(new TransformStream({
+            transform(chunk, controller) {
+                const skip = 0x155C;
+                if (downloaded >= skip) {
+                    downloaded += chunk.byteLength;
+                    done.style.transform = `scaleX(${downloaded / demoSize * .6 + .2})`;
+                    controller.enqueue(chunk);
+                    return;
+                }
+                const chunkStart = downloaded;
+                const chunkEnd = downloaded + chunk.byteLength;
+                downloaded = chunkEnd;
+                if (chunkEnd < skip) return;
+                controller.enqueue(chunk.subarray(skip - chunkStart));
                 done.style.transform = `scaleX(${downloaded / demoSize * .6 + .2})`;
-                controller.enqueue(chunk);
-                return;
+                if (downloaded === demoSize) {
+                    done.style.transform = 'scaleX(1)';
+                }
             }
-            const chunkStart = downloaded;
-            const chunkEnd = downloaded + chunk.byteLength;
-            downloaded = chunkEnd;
-            if (chunkEnd < skip) return;
-            controller.enqueue(chunk.subarray(skip - chunkStart));
-            done.style.transform = `scaleX(${downloaded / demoSize * .6 + .2})`;
-            if (downloaded === demoSize) {
-                done.style.transform = 'scaleX(1)';
+        }));
+        let tar = new Uint8Array(await new Response(gz.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+        // the tar format is structured in 512 byte blocks. Read the blocks and find the pak0.pk3 file
+        for (let offset = 0; offset < tar.byteLength;) {
+            let name = String.fromCharCode.apply(null, tar.subarray(offset, offset + 100)).replace(/\0/g, '').trim();
+            let size = parseInt(String.fromCharCode.apply(null, tar.subarray(offset + 124, offset + 136)).replace(/\0/g, '').trim(), 8);
+            if (name === 'demoq3/pak0.pk3') {
+                demoq3pak0 = tar.subarray(offset + 512, offset + 512 + size);
+                cache.put('/demoq3/pak0.pk3', new Response(demoq3pak0, { headers: { 'Content-Type': 'application/octet-stream' } }));
+                break;
             }
+            offset += 512 + Math.ceil(size / 512) * 512;
         }
-    }));
-    let tar = new Uint8Array(await new Response(gz.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
-    // the tar format is structured in 512 byte blocks. Read the blocks and find the pak0.pk3 file
-    for (let offset = 0; offset < tar.byteLength;) {
-        let name = String.fromCharCode.apply(null, tar.subarray(offset, offset + 100)).replace(/\0/g, '').trim();
-        let size = parseInt(String.fromCharCode.apply(null, tar.subarray(offset + 124, offset + 136)).replace(/\0/g, '').trim(), 8);
-        if (name === 'demoq3/pak0.pk3') {
-            demoq3pak0 = tar.subarray(offset + 512, offset + 512 + size);
-            cache.put('/demoq3/pak0.pk3', new Response(demoq3pak0, { headers: { 'Content-Type': 'application/octet-stream' } }));
-            break;
-        }
-        offset += 512 + Math.ceil(size / 512) * 512;
+    }
+    if (!demoq3pak0) throw new Error('demoq3/pak0.pk3 not found');
+    gotPk3Files([['demoq3/pak0.pk3', Promise.resolve(demoq3pak0)]]);
+} else {
+    const responses = await Promise.all(
+        [
+            '/baseq3/pak0.pk3',
+            '/baseq3/pak1.pk3',
+            '/baseq3/pak2.pk3',
+            '/baseq3/pak3.pk3',
+            '/baseq3/pak4.pk3',
+            '/baseq3/pak5.pk3',
+            '/baseq3/pak6.pk3',
+            '/baseq3/pak7.pk3',
+            '/baseq3/pak8.pk3',
+        ].map(async filePath => [filePath, await cache.match(filePath)])
+    );
+    if (responses.some(([filePath, response]) => response == undefined)) {
+        // Preserve query parameters, such as `server`,
+        // so that that page knows where to return to.
+        const nextUrl = new URL(location.href);
+        nextUrl.pathname = './upload-full-version.html';
+        nextUrl.hash = 'go-back-on-success';
+        location.assign(nextUrl);
+    } else {
+        gotPk3Files(
+            responses.map(([filePath, response]) => [
+                filePath,
+                response.arrayBuffer().then(buf => new Uint8Array(buf))
+            ])
+        );
+
+        // TODO proper progress bar: loading the files into the Emscripten FS
+        // also takes time.
+        done.style.transform = 'scaleX(1)';
     }
 }
-if (!demoq3pak0) throw new Error('demoq3/pak0.pk3 not found');
-gotDemoq3pak0(demoq3pak0);
 
 </script>
