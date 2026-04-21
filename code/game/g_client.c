@@ -745,6 +745,8 @@ void ClientUserinfoChanged( int clientNum ) {
 		}
 	}
 
+	client->pers.autoAttack = atoi( Info_ValueForKey( userinfo, "cg_autoAttack" ) );
+
 	if ( client->pers.connected == CON_CONNECTED ) {
 		if ( strcmp( oldname, client->pers.netname ) ) {
 			trap_SendServerCommand( -1, va("print \"%s" S_COLOR_WHITE " renamed to %s\n\"", oldname, 

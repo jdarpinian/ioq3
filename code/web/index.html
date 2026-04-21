@@ -380,12 +380,12 @@ let botSkill = 2;
 
 if (window.matchMedia('(pointer: coarse)').matches) {
     generatedArguments += `
-        +set cl_autoAttack 1
+        +set cg_autoAttack 1
         +set g_forcerespawn 2
     `;
 } else {
     generatedArguments += `
-        +set cl_autoAttack 0
+        +set cg_autoAttack 0
     `;
 }
 

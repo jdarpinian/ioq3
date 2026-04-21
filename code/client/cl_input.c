@@ -546,11 +546,6 @@ void CL_CmdButtons( usercmd_t *cmd ) {
 	if ( anykeydown && Key_GetCatcher( ) == 0 ) {
 		cmd->buttons |= BUTTON_ANY;
 	}
-
-	// TODO: actually detect touchscreen controls and enable this only if they are being used currently, instead of with a cvar
-	if ( cl_autoAttack->integer ) {
-		cmd->buttons |= BUTTON_AUTO_ATTACK;
-	}
 }
 
 

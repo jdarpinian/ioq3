@@ -163,6 +163,7 @@ typedef struct {
 
 	// command (in)
 	usercmd_t	cmd;
+	qboolean	autoAttack;
 	int			tracemask;			// collide against these types of surfaces
 	int			debugLevel;			// if set, diagnostic output will be printed
 	qboolean	noFootsteps;		// if the game is setup for no footsteps by the server

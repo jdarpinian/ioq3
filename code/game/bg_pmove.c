@@ -1925,7 +1925,7 @@ void PmoveSingle (pmove_t *pmove) {
 	// We trace a bunch of rays around the crosshair so that this isn't just a perfect aimbot.
 	// We start shooting when there's something roughly in the default crosshair circle.
 	// We add a small delay so that the user needs to have some aiming skill to keep opponents in their crosshairs for longer than one frame.
-	if ( pmove->cmd.buttons & BUTTON_AUTO_ATTACK ) {
+	if ( pmove->autoAttack ) {
 		// TODO: different firing patterns for different weapons? e.g. rocket launcher activates if shooting below target's feet
 		// TODO: lead moving targets?
 		memcpy(muzzle, pm->ps->origin, sizeof(vec3_t));
