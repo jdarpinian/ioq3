@@ -574,6 +574,14 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 bind PAD0_LEFTSTICK_CLICK "+zoom"
                 bind PAD0_RIGHTSTICK_CLICK "+button3"
 
+                // By default F11 is "screenshot", but firstly,
+                // they turn out to be just all black in the web version.
+                // Secondly they're not accessible by regular users
+                // and thus just waste storage.
+                // Also, F11 is associated with "full screen".
+                unbind F11
+
+
                 set r_mode -2 // make game use desktop resolution
                 set r_picmip 0 // full texture detail
                 set r_lodBias -2 // don't use lower detail models far away
