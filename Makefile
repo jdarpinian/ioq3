@@ -1109,6 +1109,7 @@ ifeq ($(PLATFORM),emscripten)
   CLIENT_LDFLAGS+=-s FULL_ES2=1
   # The HTML file can use these functions to load extra files before the game starts.
   CLIENT_LDFLAGS+=-s EXPORTED_RUNTIME_METHODS=FS,addRunDependency,removeRunDependency,cwrap,stackAlloc,out,AL,Browser,HEAPU8
+  CLIENT_LDFLAGS+=--post-js code/web/export-main-loop.js
   CLIENT_LDFLAGS+= -lidbfs.js
   CLIENT_LDFLAGS+=-s EXIT_RUNTIME=1
   CLIENT_LDFLAGS+=-s EXPORT_ES6

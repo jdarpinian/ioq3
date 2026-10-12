@@ -616,9 +616,20 @@ import(`${buildPath}/ioquake3_opengl2.wasm32.js`).then(async (ioquake3)=>{
                 self.postMessage('tick');
             }, 1000 / 60);
         `], { type: 'application/javascript' })));
+        let warned = false;
         worker.onmessage = function(e) {
-            if (document.hidden && module && module.Browser && module.Browser.mainLoop)
-                module.Browser.mainLoop.runIter(module.Browser.mainLoop.func);
+            const mainLoop = module &&
+                (module.MainLoop || (module.Browser && module.Browser.mainLoop));
+            if (!mainLoop) {
+                if (!warned) {
+                    console.error(`can't run in the background: mainLoop is ${mainLoop}`)
+                    warned = true
+                }
+                return
+            }
+
+            if (document.hidden)
+                mainLoop.runIter(mainLoop.func);
         };
     }
 });
